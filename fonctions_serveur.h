@@ -79,6 +79,19 @@ char* init_position (char* message_entrant_buffer);
  */
 
 char* init_direction (char* message_entrant_buffer);
+
+/**
+ * fonction init_vitesse
+ * ====================
+ *
+ *Permet de renvoyer la vitesse initiale du bateau (celle envoyée dans le buffer)
+ *
+ * Paramètres
+ * ----------
+ * char message_entrant_buffer : le message qu'envoie le client
+ */
+int init_vitesse (char* message_entrant_buffer);
+
 /**
  * fonction inscrire_navire
  * ========================
@@ -112,5 +125,12 @@ void affiche_navire(Bateau navire);
  */
 void affiche_annuaire(Annuaire annuaire);
 
-char* init_position (char* message_entrant_buffer);
-char* init_direction (char* message_entrant_buffer);
+/**
+ * fonction deplacement
+ * =========================
+ *
+ * Fonction qui réalise les déplacemets du bateau en fonction de la direction du vent et de la vitesse initiale.
+ * variables globales utilisées dirvent, forvent et le coefficient pour le temps kT, j'ai mis les dimensions de la carte en paramètres, mais cela peut être des var globales (H limite en y et L en x)
+ *
+ */
+void deplacement(ClientList *Clientcourant,int H, int L,char dirvent, int forvent);

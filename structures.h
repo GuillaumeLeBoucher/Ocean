@@ -7,15 +7,9 @@ typedef struct ClientNode { // structure du client
     char ip[16];
     char name[31];
     char position[10];
-    /* A ajouter au fur et a mesure pour les bateaux*/
-
-    //int identifiant;
-    //int * pidentifiant;
-    /*beaucoup plus pratique pour l'envoi du buffer initial */
-    //char vitesse[2];  
-    /* ajout de la même vitesse en int pour les "vraies" 
-    manipulations */
-    //int vitesse_int;
+    int x;
+    int y;
+    int vitesse;
     char direction[3];
 } ClientList;
 

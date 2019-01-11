@@ -18,11 +18,17 @@
 #include "serveur.h"
 #include "donnees.h"
 #include "string.h"
+#include "carte.h"
 
 // Global variables
 int ssocket = 0;
 int csocket = 0;
+char direction_vent;
+int force_vent;
 int server_sockfd = 0, client_sockfd = 0;
+char *map;
+int liste_rochers[100];
+int nombre_rochers = 0 ;
 ClientList *root, *now;
 
 
@@ -80,15 +86,13 @@ void send_to_all_clients(ClientList *Client_courant, char tmp_buffer[]) {// Perm
  * 
  */
 void modif_vent(){
-	char choix_vent[3];
-    choix_vent[0] = 0; // on initialise le vent à 0
+    force_vent = 0; // on initialise le vent à 0
     char message_console[LENGTH_MSG] = {};
     while(1){
-    char direction[3];
 		if (fgets(message_console, 32, stdin) != NULL && strcmp(left(message_console, 4),"vent") ==0 ) {
-	                choix_vent[0]= message_console[4];
-	                choix_vent[1]= message_console[5];
-	                printf("Félicitation, vous venez de changer la force et la direction du vent, elle est de :%s\n", choix_vent);
+	                force_vent =  atoi(&message_console[4]);
+	                direction_vent= message_console[5];
+	                printf("Félicitation, vous venez de changer la force et la direction du vent, elle est de :%d%c\n", force_vent,direction_vent);
 	                //fflush(stdin);
 	    	}
 	    else{
@@ -117,7 +121,7 @@ void client_handler(void *p_client) { //gestionnaire de client, permet au serveu
 
     char position[10] = {};  // obsolète, il faut gerer ça dans la stucture client
     char direction[3] = {};
-
+    int vitesse =0;
     // Nomage des clients qui rentrent pour les iidentifier dans le serveur
     
     if (recv(Client_courant->data, code_bateau_entrant, LENGTH_NAME, 0) <= 0 || est_bateau(code_bateau_entrant) == 0 ) {
@@ -127,24 +131,39 @@ void client_handler(void *p_client) { //gestionnaire de client, permet au serveu
     	char * nom_bat = nom_bateau(code_bateau_entrant);
     	char * position = init_position(code_bateau_entrant);
     	char * direction = init_direction(code_bateau_entrant);
+        vitesse = init_vitesse(code_bateau_entrant);
     	strncpy(Client_courant->position, position, 10);
     	strncpy(Client_courant->direction, direction, 10);
         strncpy(Client_courant->name, nom_bat, LENGTH_NAME); // On copie le nom que le client a rentre dans une chaine de char usable
+        Client_courant->vitesse = vitesse;
         free(nom_bat);
         free(position);
         free(direction);
-        printf("Le bateau %s(%s)(%d) a rejoint l'ocean à la position %s en direction %s.\n", Client_courant->name, Client_courant->ip, Client_courant->data, Client_courant->position,Client_courant->direction);
-        bzero(send_buffer,sizeof(send_buffer));
-        sprintf(send_buffer, "Le bateau%s(%s) a rejoint l'ocean à la position %s en direction %s", Client_courant->name, Client_courant->ip, Client_courant->position, Client_courant->direction);// On met dans le buffer et on envoi a tout le monde que le nouveau bateau a rejoint l'ocean
-        send_to_all_clients(Client_courant, send_buffer); // on envoi à tout le monde que un client vient de rejoindre la salle
+        int i = est_place_libre(Client_courant->position, liste_rochers, nombre_rochers);
+        printf("%d\n", i);
+        if (i != 0) { //le i est toujours égal à 1, probleme dans la fonction !!
+            map=ajouter_bateau(map,position);   
+            printf("Le bateau %s(%s)(%d) a rejoint l'ocean à la position %s en direction %s, à la vitesse %d.\n", Client_courant->name, Client_courant->ip, Client_courant->data, Client_courant->position,Client_courant->direction,Client_courant->vitesse);
+            bzero(send_buffer,sizeof(send_buffer));
+            sprintf(send_buffer, "Le bateau %s(%s) a rejoint l'ocean à la position %s en direction %s", Client_courant->name, Client_courant->ip, Client_courant->position, Client_courant->direction);// On met dans le buffer et on envoi a tout le monde que le nouveau bateau a rejoint l'ocean
+            send_to_all_clients(Client_courant, send_buffer); // on envoi à tout le monde que un client vient de rejoindre la salle
+            //print_map(map);
+            printf("map");
+        }
+        else{
+            printf("%s Erreur, le bateau se trouve sur une position deja occupée par un rocher ou un  autre bateau \n", Client_courant->ip);//si on ne recoit pas le bon code bateau, erreur
+            bzero(send_buffer,sizeof(send_buffer));
+            sprintf(send_buffer, "Quit");
+            send(Client_courant->data, send_buffer, LENGTH_MSG, 0);
+            control_false = 1;
+        }
     }
 
     // Conversation entre les clients 
     while (1) {
-        if (control_false) {
+        if (control_false ==1) {
             break;
-        }
-    	
+        }    	
         
         int receive = recv(Client_courant->data, recv_buffer, LENGTH_MSG, 0);
         if (receive > 0) {
@@ -186,10 +205,122 @@ void client_handler(void *p_client) { //gestionnaire de client, permet au serveu
     //free(Client_courant);
 }
 
+/**
+ * fonction client2code
+ * ====================
+ *
+ * Retourne un code navire à partir d'un client.
+ *
+ *
+ *
+ * Paramètre:
+ * ----------
+ * ClientList * client : client dont on veut obtenir le code navire
+ *
+ * Retourne:
+ * ---------
+ * char * code_client : code client (sans le nom) de la forme 231N_003En21
+ *
+ */
+char * client2code(ClientList * courant)
+{
+
+    char code_client[13] = {};
+    int now_x = courant->x;
+    int now_y = courant->y;
+    int now_v = courant->vitesse;
+    char * direction = courant->direction;
+    char now_y_str[4]= {};
+    char now_x_str[4]= {};
+    char now_v_str[3]= {};
+
+    //eventuellement remettre à zero le now_y_str mais pas faire bzero
+    sprintf(now_y_str, "%d", now_x);
+    strncpy(code_client, now_y_str, sizeof(now_y_str));
+    strcat(code_client, "N_");
+
+    //eventuellement remettre à zero le now_x_str mais pas faire bzero
+    sprintf(now_x_str, "%d", now_x);
+    strcat(code_client, now_x_str);
+    strcat(code_client, "E");
+
+    strcat(code_client, direction);
+
+        if (now_v > 99)
+        {
+            perror("client_2_code lit une vitesse à trois chiffres");
+            exit(EXIT_FAILURE);
+
+        }
+
+    //eventuellement remettre à zero le now_v_str mais pas faire bzero
+    sprintf(now_v_str, "%d", now_v);
+    strcat(code_client, now_v_str);
+
+    return code_client;
+}
+
+/**
+ * fonction transmettre_map
+ * ========================
+ * 
+ * Transmet à tous les clients un buffer avec les informations de tous les  
+ * clients, toutes les minutes
+ *
+ *
+ */
+void transmettre_map()
+{
+    int k;
+    printf("\naaaaaaaaa\n");
+    char buffer_transmis[100] = {};
+    char * commande_map = "$m";
+    strncpy(buffer_transmis, commande_map, 2);
+    char code_bateau[13];
+    printf("\naaaaaaaaa\n");
+    // il n'y a aucun client dans l'océan 
+    if (root == now)
+    {
+        perror("aucune liste client\n");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("\naaaaaaaaa\n"); //erreur à prtir de là
+
+    ClientList *tmp = root->link;
+    ClientList *tmp2 = root->link; // Pour conserver la valeur de tmp pour lui renvoyer apres la valeur du buffer
+    // tant que la pile n'est pas vide 
+    do
+    {
+        bzero(code_bateau, sizeof(code_bateau));
+        char * code_bateau = client2code(tmp);
+        strcat(buffer_transmis, code_bateau);
+    
+        // les codes navire sont séparés par une virgule 
+        strcat(buffer_transmis, ",");
+        tmp = tmp->link;
+    }while (tmp != NULL); //alors il reste des navires dans l'ocean
+
+    // caractère de fin 
+    strcat(buffer_transmis, "&");
+
+    printf("\naaaaaaaaa\n"); //Ca n'arrive pas jusque là
+    
+    // on attend dix secondes 
+    sleep(10);
+    printf("send_map\n");
+    // send_to_all envoit à tout le monde sauf à lui même... 
+    send_to_all_clients(tmp, buffer_transmis);
+    send(tmp2->data, buffer_transmis, strlen(buffer_transmis), 0);
+}
+
+
 
 int main(int argc, char * argv[])
 {
     signal(SIGINT, quitter_sock); // permet d'interrompre la communication via le clavier et la fct quitter_sock
+    //free(map);
+    map = init_map(liste_rochers,nombre_rochers);
     int port;
 	char nom[30];
     // Creation de la socket
@@ -274,44 +405,17 @@ int main(int argc, char * argv[])
     // On initialise un nouveau noeud pour les potentiels clients
     root = newNode(ssocket, inet_ntoa(serveur_info.sin_addr));
     now = root;
-
+    printf("\nLe vent a été initialisé à 0, pour le modifier, rentrez : ventNew_forceNew_dir\n");
     while (1) {
         csocket = accept(ssocket, (struct sockaddr*) &client_info, (socklen_t*) &c_addrlen);
 
         // Affiche l'adresse IP du client
         getpeername(csocket, (struct sockaddr*) &client_info, (socklen_t*) &c_addrlen);
-        printf("Le Client d'adresse %s:%d est entré\n", inet_ntoa(client_info.sin_addr), ntohs(client_info.sin_port));
-        printf("Le vent a été initialisé à 0, pour le modifier, rentrez : ventNew_forceNew_dir\n");
-        /**
+        printf("Le Client d'adresse %s:%d tente de se connecter à l'Ocean...\n", inet_ntoa(client_info.sin_addr), ntohs(client_info.sin_port));        /**
 		 * -------------------------------------
 		 * La connection est maintenant établie.
 		 * -------------------------------------
 		 */
-
-		/* on attribue un identifiant 1, 2 ou 3 au nouveau navire selon que cet 
-		   identifiant est libre ou non (vaut 0 ou non) */
-
-		//if (navire1->identifiant == 0)
-		//{
-		//	navire1->identifiant = 1;
-		//	navire_courant = 1;
-		//	mon_annuaire.identifiants_pris[0] = '1';
-		//}
-		//else if (navire2->identifiant == 0)
-		//{
-		//	navire2->identifiant = 2;
-		//	navire_courant = 2;
-		//	mon_annuaire.identifiants_pris[1] = '2';
-		//}
-		//else 
-		//{
-		//	navire3->identifiant = 3;
-		//	navire_courant = 3;
-		//	mon_annuaire.identifiants_pris[2] = '3';
-		//}
-
-		/* NOTE : l'attribution d;un identifiant devra faire l'objet d'une 
-		   fonction */
 
 
 
@@ -321,22 +425,6 @@ int main(int argc, char * argv[])
         now->link = c;
         now = c;
 
-        // A mettre dans le handler
-		//recv(csocket, buffer, 1024, 0);
-		//printf("Cette connexion est lié au code bateau suivant : %s\n", buffer);
-
-		//caracteriser_navire(navire1, buffer);
-
-		//inscrire_navire(navire1, &mon_annuaire);
-
-		//mon_annuaire.navire1 = *navire1;
-		//affiche_annuaire(mon_annuaire);
-
-		/**
-		 * -------------------------------------------------
-		 * Le navire est à présent consigné dans l'annuaire.
-		 * -------------------------------------------------
-		 */
         pthread_t gestion_client_menu;
         if (pthread_create(&gestion_client_menu, NULL, (void *)client_handler, (void *)c) != 0) {
             perror("Pthread erreur!\n");
@@ -344,6 +432,13 @@ int main(int argc, char * argv[])
         }
         pthread_t gestion_vent;
         if (pthread_create(&gestion_vent, NULL, (void * )modif_vent, (void *)c) != 0) {
+            perror("Pthread erreur!\n");
+            exit(EXIT_FAILURE);
+        }
+        
+        pthread_t transmission_map;
+        if (pthread_create(&transmission_map, NULL, (void * )transmettre_map, (void *)c) != 0) 
+        {
             perror("Pthread erreur!\n");
             exit(EXIT_FAILURE);
         }

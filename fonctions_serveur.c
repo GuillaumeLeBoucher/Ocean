@@ -12,6 +12,8 @@
 #include <ctype.h>
 #include "fonctions_serveur.h"
 
+#define max(x, y) (((x) > (y)) ? (x) : (y))
+
 
 /**
  * fonction inscription
@@ -260,6 +262,27 @@ char* init_direction (char* message_entrant_buffer){
 }
 
 /**
+ * fonction init_vitesse
+ * ====================
+ *
+ *Permet de renvoyer la vitesse initiale du bateau (celle envoyée dans le buffer)
+ *
+ * Paramètres
+ * ----------
+ * char message_entrant_buffer : le message qu'envoie le client
+ */
+int init_vitesse (char* message_entrant_buffer){
+    int * p_vitesse;
+    int vitesse_reelle;
+    p_vitesse = malloc(sizeof(int)*100);
+	*p_vitesse = atoi(&message_entrant_buffer[15]);//+ atoi(&message_entrant_buffer[16]);
+	//printf(" voila la vitesse buffer : %d + %d \n",atoi(&message_entrant_buffer[15]),atoi(&message_entrant_buffer[16]));
+	vitesse_reelle = *p_vitesse;
+	free(p_vitesse);
+	return vitesse_reelle;
+}
+
+/**
  * fonction inscrire_navire
  * ========================
  *
@@ -333,4 +356,123 @@ void affiche_annuaire(Annuaire annuaire)
 
     printf("---------------------------------------------------------\n");
 	printf("TOTAL : %d\n", n_navires);
+}
+
+/**
+ * fonction deplacement
+ * =========================
+ *
+ * Fonction qui réalise les déplacemets du bateau en fonction de la direction du vent et de la vitesse initiale.
+ * variables globales utilisées dirvent, forvent et le coefficient pour le temps kT, j'ai mis les dimensions de la carte en paramètres, mais cela peut être des var globales (H limite en y et L en x)
+ *
+ */
+
+void deplacement(ClientList *Clientcourant,int H, int L,char dirvent, int forvent)
+{
+	//px!=&x en théorie
+	int pv=Clientcourant->vitesse;
+	int px=Clientcourant->x;
+	int py=Clientcourant->y;
+	int kT = 1;
+	char dir=Clientcourant->direction[0];
+	//Partie concernant le changement de vitesse du bateau
+	switch(dir){
+		case 'N': 
+			switch (dirvent){
+				case 'N':
+					 Clientcourant->vitesse=max((int)(pv*(1+forvent/10)),20);
+					 Clientcourant->x=(px+kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=py;
+					 break;
+				case 'S':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px+kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=py;
+					 break;
+				case 'E':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px+kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=(py+kT*(Clientcourant->vitesse))%H;
+					 break;
+				case 'O':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px+kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=(py-kT*(Clientcourant->vitesse))%H;
+					 break;
+			}
+			break;
+		case 'S':
+			switch (dirvent){
+				case 'N':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px-kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=py;
+					 break;
+				case 'S':
+					 Clientcourant->vitesse=max((int)(pv*(1+forvent/10)),20);
+					 Clientcourant->x=(px-kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=py;
+					 break;
+				case 'E':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px-kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=(py+kT*(Clientcourant->vitesse))%H; 
+					 break;
+				case 'O':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px-kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=(py-kT*(Clientcourant->vitesse))%H;
+					 break;
+			}
+			break;
+		case 'E':
+			switch (dirvent){
+				case 'N':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px+kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=(py+kT*(Clientcourant->vitesse))%H; 
+					 break;
+				case 'S':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=px;
+					 Clientcourant->y=(py+kT*(Clientcourant->vitesse))%H;
+					 break;
+				case 'E':
+					 Clientcourant->vitesse=max((int)(pv*(1+forvent/10)),20);
+					 Clientcourant->x=px;
+					 Clientcourant->y=(py+kT*(Clientcourant->vitesse))%H;
+					 break;
+				case 'O':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=px;
+					 Clientcourant->y=(py+kT*(Clientcourant->vitesse))%H;
+					 break;
+			}
+			break;
+		case 'O':
+			switch (dirvent){
+				case 'N':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px+kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=(py-kT*(Clientcourant->vitesse))%H;
+					 break;
+				case 'S':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=(px-kT*(Clientcourant->vitesse))%L;
+					 Clientcourant->y=(py-kT*(Clientcourant->vitesse))%H;
+					 break;
+				case 'E':
+					 Clientcourant->vitesse=(int)(pv*1/forvent);
+					 Clientcourant->x=px;
+					 Clientcourant->y=(py-kT*(Clientcourant->vitesse))%H;
+					 break;
+				case 'O':
+					 Clientcourant->vitesse=max((int)(pv*(1+forvent/10)),20);
+					 Clientcourant->x=px;
+					 Clientcourant->y=(py-kT*(Clientcourant->vitesse))%H;
+					 break;
+			}
+			break;
+		}	
+return;
 }
