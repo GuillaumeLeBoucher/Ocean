@@ -18,7 +18,8 @@
 #include "serveur.h"
 #include "donnees.h"
 #include "string.h"
-#include "carte.h"
+
+
 
 // Global variables
 int ssocket = 0;
@@ -30,6 +31,175 @@ char *map;
 int liste_rochers[100];
 int nombre_rochers = 0 ;
 ClientList *root, *now;
+int x =0;
+int y =0;
+int compteur_bateau;
+
+
+
+
+char* init_map();
+char* ajouter_bateau(char *map, char *position);
+int est_place_libre(char position[10], int *listeRochers, ClientList *listeClients);
+char* quitter_map(char *map, char *position);
+
+char *init_map() {
+FILE * fic;
+    fic = fopen("ocean.txt", "rt");
+    char ligne[100];
+
+    int xi = 0;
+    int yi=0;
+    
+
+    int compteur =0;
+    int compteur2 =0; // pour la liste de rochers
+
+    //char map[100][100];
+    
+
+    while (compteur!=2){
+        fgets(ligne,100,fic);
+        if (compteur ==0) {
+            x=atoi(ligne)+2;
+        }
+        else {
+            y=atoi(ligne)+2;
+        }
+        compteur += 1;
+    }
+
+    char* map = malloc(x*y*sizeof(char));
+    for (xi=0 ; xi<x ;xi++){
+        for (yi=0 ; yi<y ; yi++) {
+            map[xi+yi*x]='-';
+        }
+    }
+    while (fgets(ligne,100,fic) != NULL) {
+        if (compteur%2==0) {
+            xi=x-(atoi(ligne)+1);
+            liste_rochers[compteur2]=atoi(ligne);
+            compteur2+=1;           
+        }
+        else {
+            yi=atoi(ligne);
+            map[xi+yi*x] = 'R';
+            liste_rochers[compteur2]=atoi(ligne);
+            compteur2+=1;
+            nombre_rochers+=1;
+        }
+    compteur += 1;
+    
+    }
+    return map;
+    
+}
+
+char *ajouter_bateau(char *map, char *position) {
+    int i;
+    char nord[4];
+    int nordint;
+    char est[4];
+    int estint;
+    char*map2=map;
+    nord[0]= position[0];
+    nord[1]= position[1];
+    nord[2]= position[2];
+    nordint=atoi(nord);
+    est[0]= position[5];
+    est[1]= position[6];
+    est[2]= position[7];
+    estint=atoi(est);
+    //printf("%d\n",nordint); 
+    //printf("%d",estint);
+    map2[(x-nordint-1)+estint*x]='-';
+    return map2;    
+}
+
+int est_place_libre(char position[10], int *listeRochers, ClientList *listeClients) {
+    char nord[4];
+    char est[4];
+    int acceptation = 1;
+    nord[0]= position[0];
+    nord[1]= position[1];
+    nord[2]= position[2];
+    est[0]= position[5];
+    est[1]= position[6];
+    est[2]= position[7];
+    int nord_nouveau_client = atoi(nord);
+    int est_nouveau_client = atoi(est);
+
+    int k1;
+    int k2=0;
+    
+    // 0 : place non libre
+    // 1 : place libre
+    //gestion des autres bateaux
+    if (root != now) {
+        for (k1=0 ; k1< compteur_bateau ; k1++) {
+            if (position == listeClients->position) {
+                acceptation = 0;
+                return acceptation;
+            }
+        }   
+    }
+    //printf("%d",nombre_rochers);
+
+    //gestion des rochers
+    while (k2<=nombre_rochers*2-2) {
+        if (nord_nouveau_client == listeRochers[k2] && est_nouveau_client == listeRochers[k2+1]) {
+            acceptation = 0;
+            printf("Il y a un rocher ici\n");
+            return acceptation;
+        }       
+        k2+=2;
+    }
+
+    //gestions des bords
+    if (nord_nouveau_client <= 0 || nord_nouveau_client >= x || est_nouveau_client <= 0 || est_nouveau_client >= y) 
+    {
+        acceptation = 0;
+        printf("Hors map \n");
+        return acceptation;
+    }
+    return acceptation;
+}
+
+void print_map(char* map){
+    int xi;
+    int yi;
+    for (xi=0 ; xi<x ;xi++){    
+        for (yi=0 ; yi<y ; yi++) {
+            if(xi==0||yi==0||xi==x-1||yi==y-1){
+                printf("*");
+            }
+            else{
+                printf("%c", map[xi+yi*x]);
+            }
+        }
+        printf("\n");
+    }
+    return;
+}
+
+char *quitter_map(char *map, char *position) {
+    char nord[4];
+    int nordint;
+    char est[4];
+    int estint;
+    char*map2=map;
+    nord[0]= position[0];
+    nord[1]= position[1];
+    nord[2]= position[2];
+    nordint=atoi(nord);
+    est[0]= position[5];
+    est[1]= position[6];
+    est[2]= position[7];
+    estint=atoi(est);
+    map2[(x-nordint-1)+estint*x]='-';
+    return map2;
+}
+
 
 
 /**
@@ -139,19 +309,20 @@ void client_handler(void *p_client) { //gestionnaire de client, permet au serveu
         free(nom_bat);
         free(position);
         free(direction);
-        int i = est_place_libre(Client_courant->position, liste_rochers, nombre_rochers);
-        printf("%d\n", i);
+        int i = est_place_libre(Client_courant->position, liste_rochers, Client_courant);
         if (i != 0) { //le i est toujours égal à 1, probleme dans la fonction !!
             map=ajouter_bateau(map,position);   
             printf("Le bateau %s(%s)(%d) a rejoint l'ocean à la position %s en direction %s, à la vitesse %d.\n", Client_courant->name, Client_courant->ip, Client_courant->data, Client_courant->position,Client_courant->direction,Client_courant->vitesse);
             bzero(send_buffer,sizeof(send_buffer));
             sprintf(send_buffer, "Le bateau %s(%s) a rejoint l'ocean à la position %s en direction %s", Client_courant->name, Client_courant->ip, Client_courant->position, Client_courant->direction);// On met dans le buffer et on envoi a tout le monde que le nouveau bateau a rejoint l'ocean
             send_to_all_clients(Client_courant, send_buffer); // on envoi à tout le monde que un client vient de rejoindre la salle
+            bzero(send_buffer,sizeof(send_buffer));
             //print_map(map);
-            printf("map");
+            compteur_bateau++;
+            printf("on a un bateau en plus");
         }
         else{
-            printf("%s Erreur, le bateau se trouve sur une position deja occupée par un rocher ou un  autre bateau \n", Client_courant->ip);//si on ne recoit pas le bon code bateau, erreur
+            printf("%s Attention, le bateau entrant essaye de se placer à une place prise \n", Client_courant->ip);//si on ne recoit pas le bon code bateau, erreur
             bzero(send_buffer,sizeof(send_buffer));
             sprintf(send_buffer, "Quit");
             send(Client_courant->data, send_buffer, LENGTH_MSG, 0);
@@ -176,6 +347,7 @@ void client_handler(void *p_client) { //gestionnaire de client, permet au serveu
 	    	/* on copie la position dans le buffer et on l'envoit */
 	    	sprintf(send_buffer, "%s(%s) est à la position %s", Client_courant->name, Client_courant->ip, Client_courant->position);
             }
+
         else if (strlen(recv_buffer) == 0) {
                 continue;
             }
@@ -195,6 +367,8 @@ void client_handler(void *p_client) { //gestionnaire de client, permet au serveu
 
     // Pour enlever un noeud
     close(Client_courant->data);
+    compteur_bateau--;
+    map = quitter_map(map,Client_courant->position);
     if (Client_courant == now) { //on enleve un noeud situé au bord
         now = Client_courant->prev;
         now->link = NULL;
@@ -219,44 +393,53 @@ void client_handler(void *p_client) { //gestionnaire de client, permet au serveu
  *
  * Retourne:
  * ---------
- * char * code_client : code client (sans le nom) de la forme 231N_003En21
+ * char * code_client : code client (sans le nom) de la forme "231N_003En21"
  *
  */
 char * client2code(ClientList * courant)
 {
-
-    char code_client[13] = {};
-    int now_x = courant->x;
-    int now_y = courant->y;
     int now_v = courant->vitesse;
     char * direction = courant->direction;
-    char now_y_str[4]= {};
-    char now_x_str[4]= {};
+    char * position = courant->position;
+    char v_str_droite[2] = {};
     char now_v_str[3]= {};
+    char code_client[13] = {};
 
-    //eventuellement remettre à zero le now_y_str mais pas faire bzero
-    sprintf(now_y_str, "%d", now_x);
-    strncpy(code_client, now_y_str, sizeof(now_y_str));
-    strcat(code_client, "N_");
-
-    //eventuellement remettre à zero le now_x_str mais pas faire bzero
-    sprintf(now_x_str, "%d", now_x);
-    strcat(code_client, now_x_str);
-    strcat(code_client, "E");
+    strcat(code_client, position);
+    // ici, code_client vaut "231N_003E"
 
     strcat(code_client, direction);
+    // ici, code_client vaut "231N_003En"
 
-        if (now_v > 99)
-        {
-            perror("client_2_code lit une vitesse à trois chiffres");
-            exit(EXIT_FAILURE);
+    if (now_v > 99)
+    {
+        perror("client_2_code lit une vitesse à trois chiffres");
+        exit(EXIT_FAILURE);
 
-        }
+    }
+    else if (now_v < 10)
+    { 
+        // v est une vitesse à 1 chiffre : il faut faire du zero-padding
+        sprintf(v_str_droite, "%d", now_v);
+        // v_str_droite vaut "3" 
 
-    //eventuellement remettre à zero le now_v_str mais pas faire bzero
-    sprintf(now_v_str, "%d", now_v);
-    strcat(code_client, now_v_str);
+        strcat(code_client, "0");
+        // code_client vaut "231N_003En0"
 
+        strcat(code_client, v_str_droite);
+        // code_client vaut "231N_003En03"
+        printf("dans la fonction code client, le code client vaut : %s\n", code_client);
+    }
+    else if (now_v > 10)
+    {
+        // vitesse à 2 chiffres, on inscrit directement dans now_v_str
+        sprintf(now_v_str, "%d", now_v); 
+        strcat(code_client, now_v_str);
+        // code_client vaut "231N_003En13"
+        printf("dans la fonction code client, le code client vaut : %s\n", code_client);
+    }
+
+    printf("dans la fonction code client, voici le code client : %s\n", code_client);
     return code_client;
 }
 
@@ -272,55 +455,69 @@ char * client2code(ClientList * courant)
 void transmettre_map()
 {
     int k;
-    printf("\naaaaaaaaa\n");
     char buffer_transmis[100] = {};
     char * commande_map = "$m";
     strncpy(buffer_transmis, commande_map, 2);
-    char code_bateau[13];
-    printf("\naaaaaaaaa\n");
-    // il n'y a aucun client dans l'océan 
-    if (root == now)
+    char code_bateau[13] = {};
+    
+    ClientList *tmp;
+    //ClientList *tmp2 = root->link; // Pour conserver la valeur de tmp pour lui renvoyer apres la valeur du buffer
+    while (1)
     {
-        perror("aucune liste client\n");
-        exit(EXIT_FAILURE);
+        tmp = root->link;
+        bzero(buffer_transmis, sizeof(buffer_transmis));
+        // s'il n'y a aucun client dans l'océan 
+        if (root == now)
+        {
+            perror("aucune liste client\n");
+            exit(EXIT_FAILURE);
+            break;
+        }
+
+
+
+        // tant que la pile n'est pas vide 
+        while (tmp != NULL && (strlen(tmp->position) > 5))
+        {
+            bzero(code_bateau, sizeof(code_bateau));
+            printf("\nprintf 1 (dans la boucle)\n");
+            printf("%s", code_bateau);
+            strcpy(code_bateau , "toto");
+            printf(" voici la longueur du code bateau : %d\n", strlen(code_bateau));
+            printf(" voici le code bateau : %s\n", code_bateau);
+            strcat(buffer_transmis, code_bateau);
+            printf(" voici le buffer transmis : %s\n", buffer_transmis);
+            // les codes navire sont séparés par une virgule 
+            
+            tmp = tmp->link;
+            
+            if (tmp != NULL)
+            {
+                strcat(buffer_transmis, ","); // Archtung, la virgule n'est mise que s'il y a un autre client au moins
+            }
+        } 
+        
+        // caractère de fin 
+        strcat(buffer_transmis, "&");
+        
+        // on attend dix secondes 
+        sleep(10);
+        printf("\nsend map\n");
+        // send_to_all envoit à tout le monde sauf à lui même... 
+        if (compteur_bateau >0){
+            send_to_all_clients(root, buffer_transmis);
+            //send(tmp2->data, buffer_transmis, strlen(buffer_transmis), 0);
+            printf("\nmap sent\n");
+        }
     }
-
-    printf("\naaaaaaaaa\n"); //erreur à prtir de là
-
-    ClientList *tmp = root->link;
-    ClientList *tmp2 = root->link; // Pour conserver la valeur de tmp pour lui renvoyer apres la valeur du buffer
-    // tant que la pile n'est pas vide 
-    do
-    {
-        bzero(code_bateau, sizeof(code_bateau));
-        char * code_bateau = client2code(tmp);
-        strcat(buffer_transmis, code_bateau);
-    
-        // les codes navire sont séparés par une virgule 
-        strcat(buffer_transmis, ",");
-        tmp = tmp->link;
-    }while (tmp != NULL); //alors il reste des navires dans l'ocean
-
-    // caractère de fin 
-    strcat(buffer_transmis, "&");
-
-    printf("\naaaaaaaaa\n"); //Ca n'arrive pas jusque là
-    
-    // on attend dix secondes 
-    sleep(10);
-    printf("send_map\n");
-    // send_to_all envoit à tout le monde sauf à lui même... 
-    send_to_all_clients(tmp, buffer_transmis);
-    send(tmp2->data, buffer_transmis, strlen(buffer_transmis), 0);
 }
-
 
 
 int main(int argc, char * argv[])
 {
     signal(SIGINT, quitter_sock); // permet d'interrompre la communication via le clavier et la fct quitter_sock
     //free(map);
-    map = init_map(liste_rochers,nombre_rochers);
+    map = init_map();
     int port;
 	char nom[30];
     // Creation de la socket

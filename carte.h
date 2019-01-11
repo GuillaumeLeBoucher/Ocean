@@ -12,8 +12,7 @@
 #include <netdb.h>
 #include <ctype.h>
 
-char *init_map(int liste_rochers[100],int nombre_rochers);
-char* ajouter_bateau(char *map, char *position);
-int est_place_libre(char position[10], int *listeRochers,int nombre_rochers);
-void print_map(char* map);
-int est_place_libre(char position[10], int *listeRochers,int nombre_rochers );
+char *init_map(int liste_rochers[100],int nombre_rochers, int x, int y);
+char* ajouter_bateau(char *map, char *position, int x, int y);
+int est_place_libre(char position[10], int *listeRochers,int nombre_rochers, int x, int y);
+void print_map(char* map, int x, int y);

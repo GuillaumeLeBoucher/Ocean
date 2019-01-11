@@ -15,13 +15,13 @@
 #include "carte.h"
 
 
-int x=0;
-int y=0;
+//int x=0;
+//int y=0;
 //int liste_rochers[100];
 //int nombre_rochers = 0 ;
 
 
-char *init_map(int liste_rochers[100],int nombre_rochers) {
+char *init_map(int liste_rochers[100],int nombre_rochers,int x, int y) {
 FILE * fic;
 
 	fic = fopen("ocean.txt", "rt");
@@ -90,7 +90,7 @@ FILE * fic;
 	return map;
 	
 }
-void print_map(char* map){
+void print_map(char* map, int x, int y){
 	int xi;
 	int yi;
 	for (xi=0 ; xi<x ;xi++){	
@@ -107,7 +107,7 @@ void print_map(char* map){
 	return;
 }
 
-char *ajouter_bateau(char *map, char *position) {
+char *ajouter_bateau(char *map, char *position, int x, int y) {
 	int i;
 	char nord[4];
 	int nordint;
@@ -130,7 +130,7 @@ char *ajouter_bateau(char *map, char *position) {
 	return map2;	
 }
 
-int est_place_libre(char position[10], int *listeRochers,int nombre_rochers ) {
+int est_place_libre(char position[10], int *listeRochers,int nombre_rochers, int x, int y) {
 	char nord[4];
 	char est[4];
 	int acceptation = 1;
@@ -172,7 +172,7 @@ int est_place_libre(char position[10], int *listeRochers,int nombre_rochers ) {
 	}
 
 	//gestions des bords
-	if (nord_nouveau_client == 0 || nord_nouveau_client == x || est_nouveau_client == 0 || est_nouveau_client == y) 
+	if (nord_nouveau_client == 0 || nord_nouveau_client == x +2 || est_nouveau_client == 0 || est_nouveau_client == y +2 ) 
 	{
 		acceptation = 0;
 		printf("Il y a un bord ici \n");
@@ -180,58 +180,3 @@ int est_place_libre(char position[10], int *listeRochers,int nombre_rochers ) {
 	}
 	return acceptation;
 }
-
-int est_place_libre2(char position[10], int *listeRochers,int nombre_rochers ) {
-	int acceptation = 1;
-	char nord[4];
-	char est[4];
-	nord[0]= position[0];
-	nord[1]= position[1];
-	nord[2]= position[2];
-	est[0]= position[5];
-	est[1]= position[6];
-	est[2]= position[7];
-	int nord_nouveau_client = atoi(nord);
-	int est_nouveau_client = atoi(est);
-
-
-	int k1;
-	int k2=0;
-	
-	// 0 : place non libre
-	// 1 : place libre
-	int tailleListe=0;
-	//gestion des autres bateaux
-	/*
-	if (listeClients != VIDE) {
-		for (k1=0, k1< tailleListe ; k1++) {
-			if (nord_nouveau_client == listeClients[k1]->y_buf && est_nouveau_client == listeClients[k1]->y_buf) {
-				acceptation = 0;
-				return acceptation;
-			}
-		}	
-	}*/
-	//printf("%d",nombre_rochers);
-
-	//gestion des rochers
-	while (k2<=nombre_rochers*2-2) {
-		if (nord_nouveau_client == listeRochers[k2] && est_nouveau_client == listeRochers[k2+1]) {
-			acceptation = 0;
-			printf("Il y a un rocher ici\n");
-			return acceptation;
-		}		
-		k2+=2;
-	}
-
-	//gestions des bords
-	if (nord_nouveau_client == 0 || nord_nouveau_client == x || est_nouveau_client == 0 || est_nouveau_client == y) 
-	{
-		acceptation = 0;
-		printf("Il y a un bord ici \n");
-		return acceptation;
-	}
-	return acceptation;
-}
-
-
-
